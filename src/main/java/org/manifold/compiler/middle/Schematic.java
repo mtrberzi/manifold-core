@@ -21,6 +21,8 @@ import org.manifold.compiler.TypeValue;
 import org.manifold.compiler.UndeclaredIdentifierException;
 import org.manifold.compiler.UndefinedBehaviourError;
 
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableMap;
 
 /**
@@ -37,8 +39,7 @@ public class Schematic {
 
   // Type identifiers for this schematic;
   // indexed by the (string) type-name of the object.
-  // TODO bijective structure
-  private final Map<String, Integer> typeIdentifiers;
+  private final BiMap<String, Integer> typeIdentifiers;
   private Integer nextTypeIdentifier = 1;
 
   // Specific kinds of object type.
@@ -64,7 +65,7 @@ public class Schematic {
   public Schematic(String name) {
     this.name = name;
 
-    this.typeIdentifiers = new HashMap<>();
+    this.typeIdentifiers = HashBiMap.create();
     this.typeDefinitions = new HashMap<>();
 
     this.userDefinedTypes = new HashMap<>();
@@ -117,6 +118,22 @@ public class Schematic {
     typeIdentifiers.put(typename, allocatedTypeID);
     typeDefinitions.put(allocatedTypeID, typedef);
     return allocatedTypeID;
+  }
+
+  public String getTypename(Integer typeID) {
+    if (typeIdentifiers.containsValue(typeID)) {
+      return typeIdentifiers.inverse().get(typeID);
+    } else {
+      throw new NoSuchElementException("unknown type ID #" + typeID.toString());
+    }
+  }
+
+  public TypeValue getTypeDefinition(Integer typeID) {
+    if (typeDefinitions.containsKey(typeID)) {
+      return typeDefinitions.get(typeID);
+    } else {
+      throw new NoSuchElementException("unknown type ID #" + typeID.toString());
+    }
   }
 
   public void addUserDefinedType(String typename, TypeValue td)

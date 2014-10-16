@@ -15,7 +15,7 @@ public abstract class Value {
   }
 
   protected Value(Value type, Integer schematicTypeID) {
- // Allow a "null" type so that TypeTypeValue can escape the circular
+    // Allow a "null" type so that TypeTypeValue can escape the circular
     // dependency on itself (it will override getType)
     assert type instanceof TypeValue || type == null;
     this.type = (TypeValue) type;
