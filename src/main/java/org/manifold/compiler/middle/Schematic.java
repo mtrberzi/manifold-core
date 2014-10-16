@@ -35,13 +35,22 @@ public class Schematic {
     return name;
   }
 
-  // Maps containing object definitions for this schematic; they are all
+  // Type identifiers for this schematic;
   // indexed by the (string) type-name of the object.
-  private final Map<String, TypeValue> userDefinedTypes;
-  private final Map<String, PortTypeValue> portTypes;
-  private final Map<String, NodeTypeValue> nodeTypes;
-  private final Map<String, ConnectionType> connectionTypes;
-  private final Map<String, ConstraintType> constraintTypes;
+  // TODO bijective structure
+  private final Map<String, Integer> typeIdentifiers;
+  private Integer nextTypeIdentifier = 1;
+
+  // Specific kinds of object type.
+  private final Map<String, Integer> userDefinedTypes;
+  private final Map<String, Integer> portTypes;
+  private final Map<String, Integer> nodeTypes;
+  private final Map<String, Integer> connectionTypes;
+  private final Map<String, Integer> constraintTypes;
+
+  // Object types defined in this schematic;
+  // indexed by the (integer) type-identifier.
+  private final Map<Integer, TypeValue> typeDefinitions;
 
   // Maps containing instantiated objects for this schematic; they are all
   // indexed by the (string) instance-name of the object.
@@ -55,13 +64,16 @@ public class Schematic {
   public Schematic(String name) {
     this.name = name;
 
-    this.userDefinedTypes = new HashMap<>();
-    populateDefaultType();
+    this.typeIdentifiers = new HashMap<>();
+    this.typeDefinitions = new HashMap<>();
 
+    this.userDefinedTypes = new HashMap<>();
     this.portTypes = new HashMap<>();
     this.nodeTypes = new HashMap<>();
     this.connectionTypes = new HashMap<>();
     this.constraintTypes = new HashMap<>();
+
+    populateDefaultType();
 
     this.nodes = new HashMap<>();
     this.reverseNodeMap = new HashMap<>();
@@ -95,18 +107,28 @@ public class Schematic {
     }
   }
 
-  public void addUserDefinedType(String typename, TypeValue td)
+  private Integer addTypeDefinition(String typename, TypeValue typedef)
       throws MultipleDefinitionException {
-    if (userDefinedTypes.containsKey(typename)) {
+    if (typeIdentifiers.containsKey(typename)) {
       throw new MultipleDefinitionException("type-definition", typename);
     }
-    userDefinedTypes.put(typename, td);
+    Integer allocatedTypeID = this.nextTypeIdentifier;
+    this.nextTypeIdentifier += 1;
+    typeIdentifiers.put(typename, allocatedTypeID);
+    typeDefinitions.put(allocatedTypeID, typedef);
+    return allocatedTypeID;
+  }
+
+  public void addUserDefinedType(String typename, TypeValue td)
+      throws MultipleDefinitionException {
+    Integer typeID = addTypeDefinition(typename, td);
+    userDefinedTypes.put(typename, typeID);
   }
 
   public TypeValue getUserDefinedType(String typename)
       throws UndeclaredIdentifierException {
     if (userDefinedTypes.containsKey(typename)) {
-      return userDefinedTypes.get(typename);
+      return typeDefinitions.get(userDefinedTypes.get(typename));
     } else {
       throw new UndeclaredIdentifierException(typename);
     }
@@ -114,16 +136,14 @@ public class Schematic {
 
   public void addPortType(String typename, PortTypeValue portType)
       throws MultipleDefinitionException {
-    if (portTypes.containsKey(typename)) {
-      throw new MultipleDefinitionException("port-definition", typename);
-    }
-    portTypes.put(typename, portType);
+    Integer typeID = addTypeDefinition(typename, portType);
+    portTypes.put(typename, typeID);
   }
 
   public PortTypeValue getPortType(String typename)
       throws UndeclaredIdentifierException {
     if (portTypes.containsKey(typename)) {
-      return portTypes.get(typename);
+      return (PortTypeValue) typeDefinitions.get(portTypes.get(typename));
     } else {
       throw new UndeclaredIdentifierException(typename);
     }
@@ -131,17 +151,15 @@ public class Schematic {
 
   public void addNodeType(String typename, NodeTypeValue nd)
       throws MultipleDefinitionException {
-    if (nodeTypes.containsKey(typename)) {
-      throw new MultipleDefinitionException("node-definition", typename);
-    }
-    nodeTypes.put(typename, nd);
+    Integer typeID = addTypeDefinition(typename, nd);
+    nodeTypes.put(typename, typeID);
   }
 
   public NodeTypeValue getNodeType(String typename)
       throws UndeclaredIdentifierException {
 
     if (nodeTypes.containsKey(typename)) {
-      return nodeTypes.get(typename);
+      return (NodeTypeValue) typeDefinitions.get(nodeTypes.get(typename));
     } else {
       throw new UndeclaredIdentifierException(typename);
     }
@@ -149,16 +167,15 @@ public class Schematic {
 
   public void addConnectionType(String typename, ConnectionType cd)
       throws MultipleDefinitionException {
-    if (connectionTypes.containsKey(typename)) {
-      throw new MultipleDefinitionException("connection-definition", typename);
-    }
-    connectionTypes.put(typename, cd);
+    Integer typeID = addTypeDefinition(typename, cd);
+    connectionTypes.put(typename, typeID);
   }
 
   public ConnectionType getConnectionType(String typename)
       throws UndeclaredIdentifierException {
     if (connectionTypes.containsKey(typename)) {
-      return connectionTypes.get(typename);
+      return (ConnectionType) typeDefinitions.get(
+          connectionTypes.get(typename));
     } else {
       throw new UndeclaredIdentifierException(typename);
     }
@@ -166,16 +183,15 @@ public class Schematic {
 
   public void addConstraintType(String typename, ConstraintType cd)
       throws MultipleDefinitionException {
-    if (constraintTypes.containsKey(typename)) {
-      throw new MultipleDefinitionException("constraint-definition", typename);
-    }
-    constraintTypes.put(typename, cd);
+    Integer typeID = addTypeDefinition(typename, cd);
+    constraintTypes.put(typename, typeID);
   }
 
   public ConstraintType getConstraintType(String typename)
       throws UndeclaredIdentifierException {
     if (constraintTypes.containsKey(typename)) {
-      return constraintTypes.get(typename);
+      return (ConstraintType) typeDefinitions.get(
+          constraintTypes.get(typename));
     } else {
       throw new UndeclaredIdentifierException(typename);
     }
@@ -223,7 +239,7 @@ public class Schematic {
       throw new UndeclaredIdentifierException(instanceName);
     }
   }
-  
+
   public String getConnectionName(ConnectionValue instance) {
     if (reverseConnectionMap.containsKey(instance)) {
       return reverseConnectionMap.get(instance);
@@ -248,7 +264,7 @@ public class Schematic {
       throw new UndeclaredIdentifierException(instanceName);
     }
   }
-  
+
   public String getConstraintName(ConstraintValue instance) {
     if (reverseConstraintMap.containsKey(instance)) {
       return reverseConstraintMap.get(instance);
@@ -257,23 +273,47 @@ public class Schematic {
   }
 
   public Map<String, TypeValue> getUserDefinedTypes() {
-    return ImmutableMap.copyOf(userDefinedTypes);
+    Map<String, TypeValue> results = new HashMap<>();
+    for (Map.Entry<String, Integer> typedef : userDefinedTypes.entrySet()) {
+      results.put(typedef.getKey(), typeDefinitions.get(typedef.getValue()));
+    }
+    return ImmutableMap.copyOf(results);
   }
 
   public Map<String, PortTypeValue> getPortTypes() {
-    return ImmutableMap.copyOf(portTypes);
+    Map<String, PortTypeValue> results = new HashMap<>();
+    for (Map.Entry<String, Integer> typedef : portTypes.entrySet()) {
+      results.put(typedef.getKey(),
+          (PortTypeValue) typeDefinitions.get(typedef.getValue()));
+    }
+    return ImmutableMap.copyOf(results);
   }
 
   public Map<String, NodeTypeValue> getNodeTypes() {
-    return ImmutableMap.copyOf(nodeTypes);
+    Map<String, NodeTypeValue> results = new HashMap<>();
+    for (Map.Entry<String, Integer> typedef : nodeTypes.entrySet()) {
+      results.put(typedef.getKey(),
+          (NodeTypeValue) typeDefinitions.get(typedef.getValue()));
+    }
+    return ImmutableMap.copyOf(results);
   }
 
   public Map<String, ConnectionType> getConnectionTypes() {
-    return ImmutableMap.copyOf(connectionTypes);
+    Map<String, ConnectionType> results = new HashMap<>();
+    for (Map.Entry<String, Integer> typedef : connectionTypes.entrySet()) {
+      results.put(typedef.getKey(),
+          (ConnectionType) typeDefinitions.get(typedef.getValue()));
+    }
+    return ImmutableMap.copyOf(results);
   }
 
   public Map<String, ConstraintType> getConstraintTypes() {
-    return ImmutableMap.copyOf(constraintTypes);
+    Map<String, ConstraintType> results = new HashMap<>();
+    for (Map.Entry<String, Integer> typedef : constraintTypes.entrySet()) {
+      results.put(typedef.getKey(),
+          (ConstraintType) typeDefinitions.get(typedef.getValue()));
+    }
+    return ImmutableMap.copyOf(results);
   }
 
   public Map<String, NodeValue> getNodes() {
@@ -288,8 +328,4 @@ public class Schematic {
     return ImmutableMap.copyOf(constraints);
   }
 
-
-  // TODO do we add nodes as a function of their node definition right away, or
-  // just record that the node "will" exist with such-and-such definition and
-  // elaborate it later?
 }
