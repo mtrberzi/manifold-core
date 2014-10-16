@@ -120,6 +120,15 @@ public class Schematic {
     return allocatedTypeID;
   }
 
+  public Integer getTypeIdentifier(String typename)
+      throws UndeclaredIdentifierException {
+    if (typeIdentifiers.containsKey(typename)) {
+      return typeIdentifiers.get(typename);
+    } else {
+      throw new UndeclaredIdentifierException(typename);
+    }
+  }
+
   public String getTypename(Integer typeID) {
     if (typeIdentifiers.containsValue(typeID)) {
       return typeIdentifiers.inverse().get(typeID);
